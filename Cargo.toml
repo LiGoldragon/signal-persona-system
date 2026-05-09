@@ -1,0 +1,23 @@
+[package]
+name         = "signal-persona-system"
+version      = "0.1.0"
+edition      = "2024"
+rust-version = "1.85"
+license      = "MIT OR Apache-2.0"
+repository   = "https://github.com/LiGoldragon/signal-persona-system"
+description  = "Signal contract — persona-system → persona-router channel for focus + input-buffer observations."
+publish      = false
+
+[lib]
+name = "signal_persona_system"
+path = "src/lib.rs"
+
+[dependencies]
+signal-core = { git = "https://github.com/LiGoldragon/signal-core.git" }
+rkyv        = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
+thiserror   = "2"
+
+[lints.rust]
+unsafe_code = "forbid"
+unused      = { level = "warn", priority = -1 }
+dead_code   = "warn"

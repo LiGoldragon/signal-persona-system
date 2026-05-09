@@ -27,9 +27,9 @@ use signal_core::signal_channel;
 
 /// A typed identifier for a window-shaped OS surface the
 /// router cares about. Currently only Niri windows; future
-/// backends (Mac, Hyprland, etc.) extend the enum without
-/// breaking existing consumers because new variants are
-/// rejected at decode time by the closed-enum rule.
+/// backends (Mac, Hyprland, etc.) add variants through a
+/// coordinated schema upgrade because this closed enum rejects
+/// unknown variants at decode time.
 #[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SystemTarget {
     NiriWindow(NiriWindowId),

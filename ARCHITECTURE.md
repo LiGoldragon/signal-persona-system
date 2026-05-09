@@ -88,9 +88,10 @@ SystemEvent::InputBufferObservation(InputBufferObservation {
 
 ## Round trips
 
-15 round-trip tests in `tests/round_trip.rs` — one per
-request variant (6) + one per event variant (5) +
-state-enum coverage (3) + From-impl witnesses (2).
+14 round-trip tests in `tests/round_trip.rs` cover all 6
+request variants, all 5 event variants, every
+`InputBufferState`, both `SubscriptionKind` values, and
+representative `From` impl witnesses.
 
 The `generation` field on focus + input-buffer observations
 is the monotonic counter the system mints; the router uses

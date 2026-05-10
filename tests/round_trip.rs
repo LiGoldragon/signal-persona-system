@@ -8,10 +8,10 @@
 
 use signal_core::{FrameBody, Reply, Request, SemaVerb};
 use signal_persona_system::{
-    FocusObservation, Frame, InputBufferObservation, InputBufferState, ObserveFocus,
-    ObserveInputBuffer, SubscribeFocus, SubscribeInputBuffer, SubscriptionAccepted,
-    SubscriptionKind, SystemEvent, SystemRequest, SystemTarget, TargetNotFound, UnsubscribeFocus,
-    UnsubscribeInputBuffer, WindowClosed,
+    FocusObservation, FocusSnapshot, FocusSubscription, FocusUnsubscription, Frame,
+    InputBufferObservation, InputBufferSnapshot, InputBufferState, InputBufferSubscription,
+    InputBufferUnsubscription, ObservationGeneration, ObservationTargetMissing,
+    SubscriptionAccepted, SubscriptionKind, SystemEvent, SystemRequest, SystemTarget, WindowClosed,
 };
 
 const TARGET: SystemTarget = SystemTarget::niri_window(223);
@@ -40,43 +40,45 @@ fn round_trip_event(event: SystemEvent) -> SystemEvent {
 }
 
 #[test]
-fn subscribe_focus_round_trips() {
-    let request = SystemRequest::SubscribeFocus(SubscribeFocus { target: TARGET });
+fn focus_subscription_round_trips() {
+    let request = SystemRequest::FocusSubscription(FocusSubscription { target: TARGET });
     let decoded = round_trip_request(request.clone());
     assert_eq!(decoded, request);
 }
 
 #[test]
-fn unsubscribe_focus_round_trips() {
-    let request = SystemRequest::UnsubscribeFocus(UnsubscribeFocus { target: TARGET });
+fn focus_unsubscription_round_trips() {
+    let request = SystemRequest::FocusUnsubscription(FocusUnsubscription { target: TARGET });
     let decoded = round_trip_request(request.clone());
     assert_eq!(decoded, request);
 }
 
 #[test]
-fn observe_focus_round_trips() {
-    let request = SystemRequest::ObserveFocus(ObserveFocus { target: TARGET });
+fn focus_snapshot_round_trips() {
+    let request = SystemRequest::FocusSnapshot(FocusSnapshot { target: TARGET });
     let decoded = round_trip_request(request.clone());
     assert_eq!(decoded, request);
 }
 
 #[test]
-fn subscribe_input_buffer_round_trips() {
-    let request = SystemRequest::SubscribeInputBuffer(SubscribeInputBuffer { target: TARGET });
+fn input_buffer_subscription_round_trips() {
+    let request =
+        SystemRequest::InputBufferSubscription(InputBufferSubscription { target: TARGET });
     let decoded = round_trip_request(request.clone());
     assert_eq!(decoded, request);
 }
 
 #[test]
-fn unsubscribe_input_buffer_round_trips() {
-    let request = SystemRequest::UnsubscribeInputBuffer(UnsubscribeInputBuffer { target: TARGET });
+fn input_buffer_unsubscription_round_trips() {
+    let request =
+        SystemRequest::InputBufferUnsubscription(InputBufferUnsubscription { target: TARGET });
     let decoded = round_trip_request(request.clone());
     assert_eq!(decoded, request);
 }
 
 #[test]
-fn observe_input_buffer_round_trips() {
-    let request = SystemRequest::ObserveInputBuffer(ObserveInputBuffer { target: TARGET });
+fn input_buffer_snapshot_round_trips() {
+    let request = SystemRequest::InputBufferSnapshot(InputBufferSnapshot { target: TARGET });
     let decoded = round_trip_request(request.clone());
     assert_eq!(decoded, request);
 }
@@ -86,7 +88,7 @@ fn focus_observation_round_trips_with_focused_true() {
     let event = SystemEvent::FocusObservation(FocusObservation {
         target: TARGET,
         focused: true,
-        generation: 42,
+        generation: ObservationGeneration::new(42),
     });
     let decoded = round_trip_event(event.clone());
     assert_eq!(decoded, event);
@@ -97,7 +99,7 @@ fn focus_observation_round_trips_with_focused_false() {
     let event = SystemEvent::FocusObservation(FocusObservation {
         target: TARGET,
         focused: false,
-        generation: 43,
+        generation: ObservationGeneration::new(43),
     });
     let decoded = round_trip_event(event.clone());
     assert_eq!(decoded, event);
@@ -113,7 +115,7 @@ fn input_buffer_observation_round_trips_for_each_state() {
         let event = SystemEvent::InputBufferObservation(InputBufferObservation {
             target: TARGET,
             state: state.clone(),
-            generation: 99,
+            generation: ObservationGeneration::new(99),
         });
         let decoded = round_trip_event(event.clone());
         assert_eq!(decoded, event);
@@ -140,17 +142,17 @@ fn subscription_accepted_round_trips_for_each_kind() {
 }
 
 #[test]
-fn target_not_found_round_trips() {
-    let event = SystemEvent::TargetNotFound(TargetNotFound { target: TARGET });
+fn observation_target_missing_round_trips() {
+    let event = SystemEvent::ObservationTargetMissing(ObservationTargetMissing { target: TARGET });
     let decoded = round_trip_event(event.clone());
     assert_eq!(decoded, event);
 }
 
 #[test]
-fn from_impl_lifts_subscribe_focus_into_request() {
-    let payload = SubscribeFocus { target: TARGET };
+fn from_impl_lifts_focus_subscription_into_request() {
+    let payload = FocusSubscription { target: TARGET };
     let request: SystemRequest = payload.clone().into();
-    assert_eq!(request, SystemRequest::SubscribeFocus(payload));
+    assert_eq!(request, SystemRequest::FocusSubscription(payload));
 }
 
 #[test]
@@ -158,7 +160,7 @@ fn from_impl_lifts_focus_observation_into_event() {
     let payload = FocusObservation {
         target: TARGET,
         focused: true,
-        generation: 1,
+        generation: ObservationGeneration::new(1),
     };
     let event: SystemEvent = payload.into();
     assert_eq!(event, SystemEvent::FocusObservation(payload));

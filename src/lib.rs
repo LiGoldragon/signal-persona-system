@@ -57,17 +57,31 @@ impl SystemTarget {
 
 // ─── Subscription requests (router → system) ──────────────
 
+/// Monotonic observation counter minted by `persona-system`.
+#[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ObservationGeneration(u64);
+
+impl ObservationGeneration {
+    pub const fn new(value: u64) -> Self {
+        Self(value)
+    }
+
+    pub const fn into_u64(self) -> u64 {
+        self.0
+    }
+}
+
 /// Subscribe to focus events for `target`. The system
 /// replies with an `Accepted` event and then pushes
 /// `FocusObservation` events whenever focus changes.
 #[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, PartialEq, Eq)]
-pub struct SubscribeFocus {
+pub struct FocusSubscription {
     pub target: SystemTarget,
 }
 
 /// Stop receiving focus events for `target`.
 #[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, PartialEq, Eq)]
-pub struct UnsubscribeFocus {
+pub struct FocusUnsubscription {
     pub target: SystemTarget,
 }
 
@@ -75,7 +89,7 @@ pub struct UnsubscribeFocus {
 /// now*? Reply is a single `FocusObservation` event; no
 /// subscription established.
 #[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, PartialEq, Eq)]
-pub struct ObserveFocus {
+pub struct FocusSnapshot {
     pub target: SystemTarget,
 }
 
@@ -84,26 +98,26 @@ pub struct ObserveFocus {
 /// the prompt buffer transitions between Empty / Occupied /
 /// Unknown.
 #[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, PartialEq, Eq)]
-pub struct SubscribeInputBuffer {
+pub struct InputBufferSubscription {
     pub target: SystemTarget,
 }
 
 /// Stop receiving input-buffer events for `target`.
 #[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, PartialEq, Eq)]
-pub struct UnsubscribeInputBuffer {
+pub struct InputBufferUnsubscription {
     pub target: SystemTarget,
 }
 
 /// One-shot: what's in the input buffer for `target` right
 /// now?
 #[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, PartialEq, Eq)]
-pub struct ObserveInputBuffer {
+pub struct InputBufferSnapshot {
     pub target: SystemTarget,
 }
 
 // ─── Observation events (system → router) ─────────────────
 
-/// Focus changed (or current state, for a one-shot Observe).
+/// Focus changed (or current state, for a one-shot `FocusSnapshot`).
 /// `generation` is a monotonic counter the system mints; the
 /// router uses it to discard stale events when subscriptions
 /// race.
@@ -111,16 +125,16 @@ pub struct ObserveInputBuffer {
 pub struct FocusObservation {
     pub target: SystemTarget,
     pub focused: bool,
-    pub generation: u64,
+    pub generation: ObservationGeneration,
 }
 
 /// Input-buffer state changed (or current state, for
-/// one-shot Observe).
+/// one-shot `InputBufferSnapshot`).
 #[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, PartialEq, Eq)]
 pub struct InputBufferObservation {
     pub target: SystemTarget,
     pub state: InputBufferState,
-    pub generation: u64,
+    pub generation: ObservationGeneration,
 }
 
 /// What's in a target's input buffer.
@@ -161,7 +175,7 @@ pub enum SubscriptionKind {
 /// exist (yet, or any more), or the system has no backend
 /// for it.
 #[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TargetNotFound {
+pub struct ObservationTargetMissing {
     pub target: SystemTarget,
 }
 
@@ -169,18 +183,18 @@ pub struct TargetNotFound {
 
 signal_channel! {
     request SystemRequest {
-        SubscribeFocus(SubscribeFocus),
-        UnsubscribeFocus(UnsubscribeFocus),
-        ObserveFocus(ObserveFocus),
-        SubscribeInputBuffer(SubscribeInputBuffer),
-        UnsubscribeInputBuffer(UnsubscribeInputBuffer),
-        ObserveInputBuffer(ObserveInputBuffer),
+        FocusSubscription(FocusSubscription),
+        FocusUnsubscription(FocusUnsubscription),
+        FocusSnapshot(FocusSnapshot),
+        InputBufferSubscription(InputBufferSubscription),
+        InputBufferUnsubscription(InputBufferUnsubscription),
+        InputBufferSnapshot(InputBufferSnapshot),
     }
     reply SystemEvent {
         FocusObservation(FocusObservation),
         InputBufferObservation(InputBufferObservation),
         WindowClosed(WindowClosed),
         SubscriptionAccepted(SubscriptionAccepted),
-        TargetNotFound(TargetNotFound),
+        ObservationTargetMissing(ObservationTargetMissing),
     }
 }

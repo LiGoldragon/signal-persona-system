@@ -4,6 +4,9 @@ The Signal contract between `persona-system` (producer of
 OS facts) and `persona-router` (consumer — uses focus +
 input-buffer state to gate message delivery). The whole
 channel is one `signal_channel!` invocation in `src/lib.rs`.
+It relates one router subscription client to the system observer:
+the router names observation targets and the system mints
+observation generations.
 
 ## Channel
 
@@ -26,7 +29,7 @@ once per target then waits for events.
 
 This contract defines its records locally
 (`SystemTarget`, `NiriWindowId`, `FocusObservation`,
-`InputBufferObservation`, etc.) because they're the
+`InputBufferObservation`, `ObservationGeneration`, etc.) because they're the
 channel's vocabulary, not records that travel beyond.
 
 If a future channel needs `SystemTarget` (e.g. a
@@ -37,12 +40,12 @@ harness-discovery channel), lift it to
 
 ```
 SystemRequest                    SystemEvent
-├─ SubscribeFocus                ├─ FocusObservation
-├─ UnsubscribeFocus              ├─ InputBufferObservation
-├─ ObserveFocus                  ├─ WindowClosed
-├─ SubscribeInputBuffer          ├─ SubscriptionAccepted
-├─ UnsubscribeInputBuffer        └─ TargetNotFound
-└─ ObserveInputBuffer
+├─ FocusSubscription             ├─ FocusObservation
+├─ FocusUnsubscription           ├─ InputBufferObservation
+├─ FocusSnapshot                 ├─ WindowClosed
+├─ InputBufferSubscription       ├─ SubscriptionAccepted
+├─ InputBufferUnsubscription     └─ ObservationTargetMissing
+└─ InputBufferSnapshot
 ```
 
 Closed enums; no `Unknown` variant on the wire (the
@@ -61,7 +64,7 @@ event variant) are breaking; coordinate `persona-system` +
 
 ```text
 ;; router → system: subscribe to focus events for Niri window 223
-SystemRequest::SubscribeFocus(SubscribeFocus {
+SystemRequest::FocusSubscription(FocusSubscription {
     target: SystemTarget::niri_window(223),
 })
 
@@ -75,14 +78,14 @@ SystemEvent::SubscriptionAccepted(SubscriptionAccepted {
 SystemEvent::FocusObservation(FocusObservation {
     target: SystemTarget::niri_window(223),
     focused: true,
-    generation: 12,
+    generation: ObservationGeneration::new(12),
 })
 
 ;; system → router: input buffer is now non-empty (user typing)
 SystemEvent::InputBufferObservation(InputBufferObservation {
     target: SystemTarget::niri_window(223),
     state: InputBufferState::Occupied,
-    generation: 13,
+    generation: ObservationGeneration::new(13),
 })
 ```
 
@@ -93,7 +96,7 @@ request variants, all 5 event variants, every
 `InputBufferState`, both `SubscriptionKind` values, and
 representative `From` impl witnesses.
 
-The `generation` field on focus + input-buffer observations
+The `ObservationGeneration` field on focus + input-buffer observations
 is the monotonic counter the system mints; the router uses
 it to discard stale events when subscriptions race.
 

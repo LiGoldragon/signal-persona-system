@@ -1,8 +1,7 @@
 # ARCHITECTURE — signal-persona-system
 
 The Signal contract between `persona-system` (producer of
-OS facts) and `persona-router` (consumer — uses focus +
-input-buffer state to gate message delivery). The whole
+OS facts) and `persona-router` (consumer of focus observations). The whole
 channel is one `signal_channel!` invocation in `src/lib.rs`.
 It relates one router subscription client to the system observer:
 the router names observation targets and the system mints
@@ -17,7 +16,7 @@ observation generations.
 
 The router initiates subscriptions via `SystemRequest`;
 `persona-system` accepts and pushes `SystemEvent` events as
-focus + input-buffer state changes. The channel is
+focus state changes. The channel is
 **bidirectional** but the steady-state flow is system →
 router (push events).
 
@@ -29,7 +28,7 @@ once per target then waits for events.
 
 This contract defines its records locally
 (`SystemTarget`, `NiriWindowId`, `FocusObservation`,
-`InputBufferObservation`, `ObservationGeneration`, etc.) because they're the
+`ObservationGeneration`, etc.) because they're the
 channel's vocabulary, not records that travel beyond.
 
 If a future channel needs `SystemTarget` (e.g. a harness-discovery channel),
@@ -42,17 +41,19 @@ crate is the top-level engine-manager contract.
 ```
 SystemRequest                    SystemEvent
 ├─ FocusSubscription             ├─ FocusObservation
-├─ FocusUnsubscription           ├─ InputBufferObservation
-├─ FocusSnapshot                 ├─ WindowClosed
-├─ InputBufferSubscription       ├─ SubscriptionAccepted
-├─ InputBufferUnsubscription     └─ ObservationTargetMissing
-└─ InputBufferSnapshot
+├─ FocusUnsubscription           ├─ WindowClosed
+└─ FocusSnapshot                 ├─ SubscriptionAccepted
+                                 └─ ObservationTargetMissing
 ```
 
 Closed enums; no `Unknown` variant on the wire (the
-`InputBufferState::Unknown` variant is a domain value
-meaning "system can't tell," not a wire-level
+target-missing event is an explicit typed fact, not a wire-level
 "forward-compatible new variant").
+
+Prompt cleanliness, typed write leases, and programmatic write-injection
+acknowledgements are terminal transport records. They live in
+`signal-persona-terminal` and are enforced by `persona-terminal` /
+`terminal-cell`, not by this system observation contract.
 
 ## Versioning
 
@@ -82,23 +83,16 @@ SystemEvent::FocusObservation(FocusObservation {
     generation: ObservationGeneration::new(12),
 })
 
-;; system → router: input buffer is now non-empty (user typing)
-SystemEvent::InputBufferObservation(InputBufferObservation {
-    target: SystemTarget::niri_window(223),
-    state: InputBufferState::Occupied,
-    generation: ObservationGeneration::new(13),
-})
 ```
 
 ## Round trips
 
-14 round-trip tests in `tests/round_trip.rs` cover all 6
-request variants, all 5 event variants, every
-`InputBufferState`, both `SubscriptionKind` values, and
+Round-trip tests in `tests/round_trip.rs` cover all request variants, all
+event variants, `SubscriptionKind`, and
 representative `From` impl witnesses.
 
-The `ObservationGeneration` field on focus + input-buffer observations
-is the monotonic counter the system mints; the router uses
+The `ObservationGeneration` field on focus observations is the monotonic
+counter the system mints; the router uses
 it to discard stale events when subscriptions race.
 
 Architectural-truth tests fire when:
@@ -111,7 +105,7 @@ Architectural-truth tests fire when:
 
 - No Niri adapter — that's `persona-system`.
 - No focus-tracker actor — that's `persona-system`.
-- No router gate logic — that's `persona-router`.
+- No terminal prompt gate logic — that's `persona-terminal` / `terminal-cell`.
 - No transport (UDS path, reconnect, timeouts).
 - No subscription accounting — that's `persona-system`'s
   actor.

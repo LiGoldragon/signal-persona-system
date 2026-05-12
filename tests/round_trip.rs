@@ -9,9 +9,8 @@
 use signal_core::{FrameBody, Reply, Request, SemaVerb};
 use signal_persona_system::{
     FocusObservation, FocusSnapshot, FocusSubscription, FocusUnsubscription, Frame,
-    InputBufferObservation, InputBufferSnapshot, InputBufferState, InputBufferSubscription,
-    InputBufferUnsubscription, ObservationGeneration, ObservationTargetMissing,
-    SubscriptionAccepted, SubscriptionKind, SystemEvent, SystemRequest, SystemTarget, WindowClosed,
+    ObservationGeneration, ObservationTargetMissing, SubscriptionAccepted, SubscriptionKind,
+    SystemEvent, SystemRequest, SystemTarget, WindowClosed,
 };
 
 const TARGET: SystemTarget = SystemTarget::niri_window(223);
@@ -61,29 +60,6 @@ fn focus_snapshot_round_trips() {
 }
 
 #[test]
-fn input_buffer_subscription_round_trips() {
-    let request =
-        SystemRequest::InputBufferSubscription(InputBufferSubscription { target: TARGET });
-    let decoded = round_trip_request(request.clone());
-    assert_eq!(decoded, request);
-}
-
-#[test]
-fn input_buffer_unsubscription_round_trips() {
-    let request =
-        SystemRequest::InputBufferUnsubscription(InputBufferUnsubscription { target: TARGET });
-    let decoded = round_trip_request(request.clone());
-    assert_eq!(decoded, request);
-}
-
-#[test]
-fn input_buffer_snapshot_round_trips() {
-    let request = SystemRequest::InputBufferSnapshot(InputBufferSnapshot { target: TARGET });
-    let decoded = round_trip_request(request.clone());
-    assert_eq!(decoded, request);
-}
-
-#[test]
 fn focus_observation_round_trips_with_focused_true() {
     let event = SystemEvent::FocusObservation(FocusObservation {
         target: TARGET,
@@ -106,23 +82,6 @@ fn focus_observation_round_trips_with_focused_false() {
 }
 
 #[test]
-fn input_buffer_observation_round_trips_for_each_state() {
-    for state in [
-        InputBufferState::Empty,
-        InputBufferState::Occupied,
-        InputBufferState::Unknown,
-    ] {
-        let event = SystemEvent::InputBufferObservation(InputBufferObservation {
-            target: TARGET,
-            state: state.clone(),
-            generation: ObservationGeneration::new(99),
-        });
-        let decoded = round_trip_event(event.clone());
-        assert_eq!(decoded, event);
-    }
-}
-
-#[test]
 fn window_closed_round_trips() {
     let event = SystemEvent::WindowClosed(WindowClosed { target: TARGET });
     let decoded = round_trip_event(event.clone());
@@ -130,15 +89,13 @@ fn window_closed_round_trips() {
 }
 
 #[test]
-fn subscription_accepted_round_trips_for_each_kind() {
-    for kind in [SubscriptionKind::Focus, SubscriptionKind::InputBuffer] {
-        let event = SystemEvent::SubscriptionAccepted(SubscriptionAccepted {
-            target: TARGET,
-            kind,
-        });
-        let decoded = round_trip_event(event.clone());
-        assert_eq!(decoded, event);
-    }
+fn subscription_accepted_round_trips_for_focus_kind() {
+    let event = SystemEvent::SubscriptionAccepted(SubscriptionAccepted {
+        target: TARGET,
+        kind: SubscriptionKind::Focus,
+    });
+    let decoded = round_trip_event(event.clone());
+    assert_eq!(decoded, event);
 }
 
 #[test]
@@ -164,4 +121,54 @@ fn from_impl_lifts_focus_observation_into_event() {
     };
     let event: SystemEvent = payload.into();
     assert_eq!(event, SystemEvent::FocusObservation(payload));
+}
+
+#[test]
+fn system_contract_cannot_carry_terminal_prompt_gate_records() {
+    let scan = DriftScan::new(env!("CARGO_MANIFEST_DIR"));
+
+    scan.assert_absent(&[
+        "InputBuffer",
+        "input-buffer",
+        "prompt buffer",
+        "prompt-buffer",
+        "gate message delivery",
+        "gate deliveries",
+    ]);
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DriftScan {
+    root: std::path::PathBuf,
+}
+
+impl DriftScan {
+    fn new(root: impl Into<std::path::PathBuf>) -> Self {
+        Self { root: root.into() }
+    }
+
+    fn assert_absent(&self, forbidden_fragments: &[&str]) {
+        let mut violations = Vec::new();
+        self.collect_violations("src/lib.rs", forbidden_fragments, &mut violations);
+        assert!(
+            violations.is_empty(),
+            "terminal prompt-gate records belong to signal-persona-terminal:\n{}",
+            violations.join("\n")
+        );
+    }
+
+    fn collect_violations(
+        &self,
+        relative_path: &str,
+        forbidden_fragments: &[&str],
+        violations: &mut Vec<String>,
+    ) {
+        let path = self.root.join(relative_path);
+        let content = std::fs::read_to_string(&path).expect("scan source file");
+        for fragment in forbidden_fragments {
+            if content.contains(fragment) {
+                violations.push(format!("{relative_path} contains {fragment}"));
+            }
+        }
+    }
 }

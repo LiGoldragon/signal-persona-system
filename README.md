@@ -1,9 +1,8 @@
 # signal-persona-system
 
 The Signal contract between **`persona-system`** (producer
-of OS facts) and **`persona-router`** (consumer — uses
-focus + input-buffer state to gate message delivery per the
-safety property).
+of OS facts) and **`persona-router`** (consumer of focus
+observations).
 
 Read `src/lib.rs` for the public interface — two enums
 (`SystemRequest`, `SystemEvent`) declared via the
@@ -13,11 +12,11 @@ this channel carries.
 ## Quick reference
 
 ```rust
-use signal_persona_system::{Frame, SubscribeFocus, SystemRequest, SystemTarget};
+use signal_persona_system::{FocusSubscription, Frame, SystemRequest, SystemTarget};
 use signal_core::{FrameBody, Request};
 
 // Router subscribes to focus events for a Niri window
-let request = SystemRequest::SubscribeFocus(SubscribeFocus {
+let request = SystemRequest::FocusSubscription(FocusSubscription {
     target: SystemTarget::niri_window(223),
 });
 let frame = Frame::new(FrameBody::Request(Request::assert(request)));
@@ -28,6 +27,10 @@ let bytes = frame.encode_length_prefixed()?;
 The system replies with `SystemEvent::SubscriptionAccepted`
 followed by `SystemEvent::FocusObservation` events whenever
 focus changes for the subscribed target.
+
+Prompt cleanliness, input gates, and programmatic write safety are terminal
+transport facts. They live in `signal-persona-terminal`, not in this system
+contract.
 
 ## See also
 

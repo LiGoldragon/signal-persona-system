@@ -26,16 +26,17 @@ consumers.
   currently NiriWindow only).
 - The closed `SystemRequest` enum (subscription +
   observation requests from the router).
-- The closed `SystemEvent` enum (focus / input-buffer /
-  window-lifecycle / subscription events from the system).
-- `InputBufferState`, `SubscriptionKind` enums.
+- The closed `SystemEvent` enum (focus, window-lifecycle,
+  and subscription events from the system).
+- `SubscriptionKind`.
 - The `Frame` type alias = `signal_core::Frame<SystemRequest, SystemEvent>`.
 - The wire-form round-trip tests in `tests/round_trip.rs`.
 
 ## What this repo does not own
 
 - The Niri adapter (lives in `persona-system`).
-- The router's gate logic (lives in `persona-router`).
+- Terminal prompt cleanliness, input gates, and write-injection
+  safety (live in `signal-persona-terminal` and `persona-terminal`).
 - Transport (UDS path, reconnect, timeouts) — per consumer.
 - Subscription lifetime / accounting — that's
   `persona-system`'s actor.

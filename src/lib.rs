@@ -4,11 +4,11 @@
 //! channel. The channel carries:
 //!
 //! - **Subscription requests** from the router (start /
-//!   stop watching a target's focus or input-buffer state).
+//!   stop watching a target's focus state).
 //! - **One-shot observation requests** from the router
 //!   (current focus state right now, no subscription).
 //! - **Observation events** from `persona-system` (focus
-//!   changes, input-buffer changes, target lifecycle).
+//!   changes and target lifecycle).
 //!
 //! The channel is **bidirectional**: the router initiates
 //! subscriptions; the system pushes observation events back
@@ -93,28 +93,6 @@ pub struct FocusSnapshot {
     pub target: SystemTarget,
 }
 
-/// Subscribe to input-buffer events for `target`. The
-/// system pushes `InputBufferObservation` events whenever
-/// the prompt buffer transitions between Empty / Occupied /
-/// Unknown.
-#[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, PartialEq, Eq)]
-pub struct InputBufferSubscription {
-    pub target: SystemTarget,
-}
-
-/// Stop receiving input-buffer events for `target`.
-#[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, PartialEq, Eq)]
-pub struct InputBufferUnsubscription {
-    pub target: SystemTarget,
-}
-
-/// One-shot: what's in the input buffer for `target` right
-/// now?
-#[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, PartialEq, Eq)]
-pub struct InputBufferSnapshot {
-    pub target: SystemTarget,
-}
-
 // ─── Observation events (system → router) ─────────────────
 
 /// Focus changed (or current state, for a one-shot `FocusSnapshot`).
@@ -126,27 +104,6 @@ pub struct FocusObservation {
     pub target: SystemTarget,
     pub focused: bool,
     pub generation: ObservationGeneration,
-}
-
-/// Input-buffer state changed (or current state, for
-/// one-shot `InputBufferSnapshot`).
-#[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, PartialEq, Eq)]
-pub struct InputBufferObservation {
-    pub target: SystemTarget,
-    pub state: InputBufferState,
-    pub generation: ObservationGeneration,
-}
-
-/// What's in a target's input buffer.
-///
-/// `Unknown` is the safe default: the router treats it the
-/// same as `Occupied` (per the safety property — never
-/// inject when uncertain).
-#[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, PartialEq, Eq)]
-pub enum InputBufferState {
-    Empty,
-    Occupied,
-    Unknown,
 }
 
 /// The target window has gone away (closed by user, killed,
@@ -168,7 +125,6 @@ pub struct SubscriptionAccepted {
 #[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SubscriptionKind {
     Focus,
-    InputBuffer,
 }
 
 /// The system can't observe the named target — it doesn't
@@ -186,13 +142,9 @@ signal_channel! {
         FocusSubscription(FocusSubscription),
         FocusUnsubscription(FocusUnsubscription),
         FocusSnapshot(FocusSnapshot),
-        InputBufferSubscription(InputBufferSubscription),
-        InputBufferUnsubscription(InputBufferUnsubscription),
-        InputBufferSnapshot(InputBufferSnapshot),
     }
     reply SystemEvent {
         FocusObservation(FocusObservation),
-        InputBufferObservation(InputBufferObservation),
         WindowClosed(WindowClosed),
         SubscriptionAccepted(SubscriptionAccepted),
         ObservationTargetMissing(ObservationTargetMissing),

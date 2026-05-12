@@ -20,6 +20,7 @@
 //! boundaries; `~/primary/reports/designer/72-harmonized-implementation-plan.md`
 //! §6 for the contract-creation discipline.
 
+use nota_codec::{Decoder, Encoder, NotaDecode, NotaEncode, NotaEnum, NotaRecord, NotaTransparent};
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use signal_core::signal_channel;
 
@@ -36,7 +37,18 @@ pub enum SystemTarget {
 }
 
 /// Niri's typed window id (a u64 newtype).
-#[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(
+    Archive,
+    RkyvSerialize,
+    RkyvDeserialize,
+    NotaTransparent,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+)]
 pub struct NiriWindowId(u64);
 
 impl NiriWindowId {
@@ -55,10 +67,42 @@ impl SystemTarget {
     }
 }
 
+impl NotaEncode for SystemTarget {
+    fn encode(&self, encoder: &mut Encoder) -> nota_codec::Result<()> {
+        match self {
+            Self::NiriWindow(window_id) => {
+                encoder.start_record("NiriWindow")?;
+                window_id.encode(encoder)?;
+                encoder.end_record()
+            }
+        }
+    }
+}
+
+impl NotaDecode for SystemTarget {
+    fn decode(decoder: &mut Decoder<'_>) -> nota_codec::Result<Self> {
+        decoder.expect_record_head("NiriWindow")?;
+        let window_id = NiriWindowId::decode(decoder)?;
+        decoder.expect_record_end()?;
+        Ok(Self::NiriWindow(window_id))
+    }
+}
+
 // ─── Subscription requests (router → system) ──────────────
 
 /// Monotonic observation counter minted by `persona-system`.
-#[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(
+    Archive,
+    RkyvSerialize,
+    RkyvDeserialize,
+    NotaTransparent,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+)]
 pub struct ObservationGeneration(u64);
 
 impl ObservationGeneration {
@@ -74,13 +118,13 @@ impl ObservationGeneration {
 /// Subscribe to focus events for `target`. The system
 /// replies with an `Accepted` event and then pushes
 /// `FocusObservation` events whenever focus changes.
-#[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Archive, RkyvSerialize, RkyvDeserialize, NotaRecord, Debug, Clone, PartialEq, Eq)]
 pub struct FocusSubscription {
     pub target: SystemTarget,
 }
 
 /// Stop receiving focus events for `target`.
-#[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Archive, RkyvSerialize, RkyvDeserialize, NotaRecord, Debug, Clone, PartialEq, Eq)]
 pub struct FocusUnsubscription {
     pub target: SystemTarget,
 }
@@ -88,7 +132,7 @@ pub struct FocusUnsubscription {
 /// One-shot: what is the focus state for `target` *right
 /// now*? Reply is a single `FocusObservation` event; no
 /// subscription established.
-#[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Archive, RkyvSerialize, RkyvDeserialize, NotaRecord, Debug, Clone, PartialEq, Eq)]
 pub struct FocusSnapshot {
     pub target: SystemTarget,
 }
@@ -99,7 +143,9 @@ pub struct FocusSnapshot {
 /// `generation` is a monotonic counter the system mints; the
 /// router uses it to discard stale events when subscriptions
 /// race.
-#[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+    Archive, RkyvSerialize, RkyvDeserialize, NotaRecord, Debug, Clone, Copy, PartialEq, Eq,
+)]
 pub struct FocusObservation {
     pub target: SystemTarget,
     pub focused: bool,
@@ -109,20 +155,24 @@ pub struct FocusObservation {
 /// The target window has gone away (closed by user, killed,
 /// etc.). The system stops emitting events for it; existing
 /// subscriptions on that target are implicitly cancelled.
-#[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+    Archive, RkyvSerialize, RkyvDeserialize, NotaRecord, Debug, Clone, Copy, PartialEq, Eq,
+)]
 pub struct WindowClosed {
     pub target: SystemTarget,
 }
 
 /// Subscription was accepted; events of the named kind will
 /// follow.
-#[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+    Archive, RkyvSerialize, RkyvDeserialize, NotaRecord, Debug, Clone, Copy, PartialEq, Eq,
+)]
 pub struct SubscriptionAccepted {
     pub target: SystemTarget,
     pub kind: SubscriptionKind,
 }
 
-#[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Archive, RkyvSerialize, RkyvDeserialize, NotaEnum, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SubscriptionKind {
     Focus,
 }
@@ -130,7 +180,9 @@ pub enum SubscriptionKind {
 /// The system can't observe the named target — it doesn't
 /// exist (yet, or any more), or the system has no backend
 /// for it.
-#[derive(Archive, RkyvSerialize, RkyvDeserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+    Archive, RkyvSerialize, RkyvDeserialize, NotaRecord, Debug, Clone, Copy, PartialEq, Eq,
+)]
 pub struct ObservationTargetMissing {
     pub target: SystemTarget,
 }

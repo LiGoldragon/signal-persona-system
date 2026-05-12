@@ -6,6 +6,7 @@
 //! proves the macro-emitted type round-trips through a
 //! length-prefixed Frame.
 
+use nota_codec::{Decoder, Encoder, NotaDecode, NotaEncode};
 use signal_core::{FrameBody, Reply, Request, SemaVerb};
 use signal_persona_system::{
     FocusObservation, FocusSnapshot, FocusSubscription, FocusUnsubscription, Frame,
@@ -38,11 +39,33 @@ fn round_trip_event(event: SystemEvent) -> SystemEvent {
     }
 }
 
+fn round_trip_nota<T>(value: T, expected: &str)
+where
+    T: NotaEncode + NotaDecode + PartialEq + std::fmt::Debug,
+{
+    let mut encoder = Encoder::new();
+    value.encode(&mut encoder).expect("encode nota text");
+    let encoded = encoder.into_string();
+    assert_eq!(encoded, expected);
+
+    let mut decoder = Decoder::new(&encoded);
+    let recovered = T::decode(&mut decoder).expect("decode nota text");
+    assert_eq!(recovered, value);
+}
+
 #[test]
 fn focus_subscription_round_trips() {
     let request = SystemRequest::FocusSubscription(FocusSubscription { target: TARGET });
     let decoded = round_trip_request(request.clone());
     assert_eq!(decoded, request);
+}
+
+#[test]
+fn focus_subscription_request_round_trips_through_nota_text() {
+    round_trip_nota(
+        SystemRequest::FocusSubscription(FocusSubscription { target: TARGET }),
+        "(FocusSubscription (NiriWindow 223))",
+    );
 }
 
 #[test]
@@ -96,6 +119,17 @@ fn subscription_accepted_round_trips_for_focus_kind() {
     });
     let decoded = round_trip_event(event.clone());
     assert_eq!(decoded, event);
+}
+
+#[test]
+fn subscription_accepted_event_round_trips_through_nota_text() {
+    round_trip_nota(
+        SystemEvent::SubscriptionAccepted(SubscriptionAccepted {
+            target: TARGET,
+            kind: SubscriptionKind::Focus,
+        }),
+        "(SubscriptionAccepted (NiriWindow 223) Focus)",
+    );
 }
 
 #[test]

@@ -88,8 +88,10 @@ SystemEvent::FocusObservation(FocusObservation {
 ## Round trips
 
 Round-trip tests in `tests/round_trip.rs` cover all request variants, all
-event variants, `SubscriptionKind`, and
-representative `From` impl witnesses.
+event variants, `SubscriptionKind`, and representative `From` impl witnesses.
+Representative NOTA text witnesses cover `FocusSubscription` and
+`SubscriptionAccepted`. `SystemTarget` has a manual NOTA codec so the text form
+preserves the target head, for example `(NiriWindow 223)`.
 
 The `ObservationGeneration` field on focus observations is the monotonic
 counter the system mints; the router uses
@@ -116,7 +118,7 @@ Architectural-truth tests fire when:
 src/
 └── lib.rs    — payloads + signal_channel! invocation
 tests/
-└── round_trip.rs — per-variant wire-form round trips
+└── round_trip.rs — per-variant frame round trips + NOTA text witnesses
 ```
 
 ## See also

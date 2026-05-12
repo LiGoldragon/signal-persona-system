@@ -137,6 +137,15 @@ pub struct FocusSnapshot {
     pub target: SystemTarget,
 }
 
+#[derive(
+    Archive, RkyvSerialize, RkyvDeserialize, NotaEnum, Debug, Clone, Copy, PartialEq, Eq, Hash,
+)]
+pub enum SystemOperationKind {
+    FocusSubscription,
+    FocusUnsubscription,
+    FocusSnapshot,
+}
+
 // ─── Observation events (system → router) ─────────────────
 
 /// Focus changed (or current state, for a one-shot `FocusSnapshot`).
@@ -200,5 +209,15 @@ signal_channel! {
         WindowClosed(WindowClosed),
         SubscriptionAccepted(SubscriptionAccepted),
         ObservationTargetMissing(ObservationTargetMissing),
+    }
+}
+
+impl SystemRequest {
+    pub fn operation_kind(&self) -> SystemOperationKind {
+        match self {
+            Self::FocusSubscription(_) => SystemOperationKind::FocusSubscription,
+            Self::FocusUnsubscription(_) => SystemOperationKind::FocusUnsubscription,
+            Self::FocusSnapshot(_) => SystemOperationKind::FocusSnapshot,
+        }
     }
 }

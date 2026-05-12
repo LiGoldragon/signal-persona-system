@@ -11,7 +11,7 @@ use signal_core::{FrameBody, Reply, Request, SemaVerb};
 use signal_persona_system::{
     FocusObservation, FocusSnapshot, FocusSubscription, FocusUnsubscription, Frame,
     ObservationGeneration, ObservationTargetMissing, SubscriptionAccepted, SubscriptionKind,
-    SystemEvent, SystemRequest, SystemTarget, WindowClosed,
+    SystemEvent, SystemOperationKind, SystemRequest, SystemTarget, WindowClosed,
 };
 
 const TARGET: SystemTarget = SystemTarget::niri_window(223);
@@ -80,6 +80,33 @@ fn focus_snapshot_round_trips() {
     let request = SystemRequest::FocusSnapshot(FocusSnapshot { target: TARGET });
     let decoded = round_trip_request(request.clone());
     assert_eq!(decoded, request);
+}
+
+#[test]
+fn system_request_exposes_contract_owned_operation_kind() {
+    let cases = [
+        (
+            SystemRequest::FocusSubscription(FocusSubscription { target: TARGET }),
+            SystemOperationKind::FocusSubscription,
+        ),
+        (
+            SystemRequest::FocusUnsubscription(FocusUnsubscription { target: TARGET }),
+            SystemOperationKind::FocusUnsubscription,
+        ),
+        (
+            SystemRequest::FocusSnapshot(FocusSnapshot { target: TARGET }),
+            SystemOperationKind::FocusSnapshot,
+        ),
+    ];
+
+    for (request, operation) in cases {
+        assert_eq!(request.operation_kind(), operation);
+    }
+}
+
+#[test]
+fn system_operation_kind_round_trips_through_nota_text() {
+    round_trip_nota(SystemOperationKind::FocusSubscription, "FocusSubscription");
 }
 
 #[test]

@@ -11,7 +11,9 @@ use signal_core::{FrameBody, Reply, Request, SemaVerb};
 use signal_persona_system::{
     FocusObservation, FocusSnapshot, FocusSubscription, FocusUnsubscription, Frame,
     ObservationGeneration, ObservationTargetMissing, SubscriptionAccepted, SubscriptionKind,
-    SystemEvent, SystemOperationKind, SystemRequest, SystemTarget, WindowClosed,
+    SystemBackend, SystemEvent, SystemHealth, SystemOperationKind, SystemReadiness, SystemRequest,
+    SystemRequestUnimplemented, SystemStatus, SystemStatusQuery, SystemTarget,
+    SystemUnimplementedReason, WindowClosed,
 };
 
 const TARGET: SystemTarget = SystemTarget::niri_window(223);
@@ -76,10 +78,45 @@ fn focus_unsubscription_round_trips() {
 }
 
 #[test]
+fn focus_unsubscription_request_round_trips_through_nota_text() {
+    round_trip_nota(
+        SystemRequest::FocusUnsubscription(FocusUnsubscription { target: TARGET }),
+        "(FocusUnsubscription (NiriWindow 223))",
+    );
+}
+
+#[test]
 fn focus_snapshot_round_trips() {
     let request = SystemRequest::FocusSnapshot(FocusSnapshot { target: TARGET });
     let decoded = round_trip_request(request.clone());
     assert_eq!(decoded, request);
+}
+
+#[test]
+fn focus_snapshot_request_round_trips_through_nota_text() {
+    round_trip_nota(
+        SystemRequest::FocusSnapshot(FocusSnapshot { target: TARGET }),
+        "(FocusSnapshot (NiriWindow 223))",
+    );
+}
+
+#[test]
+fn system_status_query_round_trips() {
+    let request = SystemRequest::SystemStatusQuery(SystemStatusQuery {
+        backend: SystemBackend::Niri,
+    });
+    let decoded = round_trip_request(request.clone());
+    assert_eq!(decoded, request);
+}
+
+#[test]
+fn system_status_query_round_trips_through_nota_text() {
+    round_trip_nota(
+        SystemRequest::SystemStatusQuery(SystemStatusQuery {
+            backend: SystemBackend::Niri,
+        }),
+        "(SystemStatusQuery Niri)",
+    );
 }
 
 #[test]
@@ -97,6 +134,12 @@ fn system_request_exposes_contract_owned_operation_kind() {
             SystemRequest::FocusSnapshot(FocusSnapshot { target: TARGET }),
             SystemOperationKind::FocusSnapshot,
         ),
+        (
+            SystemRequest::SystemStatusQuery(SystemStatusQuery {
+                backend: SystemBackend::Niri,
+            }),
+            SystemOperationKind::SystemStatusQuery,
+        ),
     ];
 
     for (request, operation) in cases {
@@ -107,6 +150,12 @@ fn system_request_exposes_contract_owned_operation_kind() {
 #[test]
 fn system_operation_kind_round_trips_through_nota_text() {
     round_trip_nota(SystemOperationKind::FocusSubscription, "FocusSubscription");
+    round_trip_nota(
+        SystemOperationKind::FocusUnsubscription,
+        "FocusUnsubscription",
+    );
+    round_trip_nota(SystemOperationKind::FocusSnapshot, "FocusSnapshot");
+    round_trip_nota(SystemOperationKind::SystemStatusQuery, "SystemStatusQuery");
 }
 
 #[test]
@@ -132,10 +181,30 @@ fn focus_observation_round_trips_with_focused_false() {
 }
 
 #[test]
+fn focus_observation_event_round_trips_through_nota_text() {
+    round_trip_nota(
+        SystemEvent::FocusObservation(FocusObservation {
+            target: TARGET,
+            focused: true,
+            generation: ObservationGeneration::new(42),
+        }),
+        "(FocusObservation (NiriWindow 223) true 42)",
+    );
+}
+
+#[test]
 fn window_closed_round_trips() {
     let event = SystemEvent::WindowClosed(WindowClosed { target: TARGET });
     let decoded = round_trip_event(event.clone());
     assert_eq!(decoded, event);
+}
+
+#[test]
+fn window_closed_event_round_trips_through_nota_text() {
+    round_trip_nota(
+        SystemEvent::WindowClosed(WindowClosed { target: TARGET }),
+        "(WindowClosed (NiriWindow 223))",
+    );
 }
 
 #[test]
@@ -167,10 +236,71 @@ fn observation_target_missing_round_trips() {
 }
 
 #[test]
+fn observation_target_missing_event_round_trips_through_nota_text() {
+    round_trip_nota(
+        SystemEvent::ObservationTargetMissing(ObservationTargetMissing { target: TARGET }),
+        "(ObservationTargetMissing (NiriWindow 223))",
+    );
+}
+
+#[test]
+fn system_status_event_round_trips() {
+    let event = SystemEvent::SystemStatus(SystemStatus {
+        backend: SystemBackend::Niri,
+        health: SystemHealth::Running,
+        readiness: SystemReadiness::Ready,
+    });
+    let decoded = round_trip_event(event.clone());
+    assert_eq!(decoded, event);
+}
+
+#[test]
+fn system_status_event_round_trips_through_nota_text() {
+    round_trip_nota(
+        SystemEvent::SystemStatus(SystemStatus {
+            backend: SystemBackend::Niri,
+            health: SystemHealth::Running,
+            readiness: SystemReadiness::Ready,
+        }),
+        "(SystemStatus Niri Running Ready)",
+    );
+}
+
+#[test]
+fn system_request_unimplemented_event_round_trips() {
+    let event = SystemEvent::SystemRequestUnimplemented(SystemRequestUnimplemented {
+        operation: SystemOperationKind::FocusSubscription,
+        reason: SystemUnimplementedReason::NotBuiltYet,
+    });
+    let decoded = round_trip_event(event.clone());
+    assert_eq!(decoded, event);
+}
+
+#[test]
+fn system_request_unimplemented_event_round_trips_through_nota_text() {
+    round_trip_nota(
+        SystemEvent::SystemRequestUnimplemented(SystemRequestUnimplemented {
+            operation: SystemOperationKind::FocusSubscription,
+            reason: SystemUnimplementedReason::NotBuiltYet,
+        }),
+        "(SystemRequestUnimplemented FocusSubscription NotBuiltYet)",
+    );
+}
+
+#[test]
 fn from_impl_lifts_focus_subscription_into_request() {
     let payload = FocusSubscription { target: TARGET };
     let request: SystemRequest = payload.clone().into();
     assert_eq!(request, SystemRequest::FocusSubscription(payload));
+}
+
+#[test]
+fn from_impl_lifts_system_status_query_into_request() {
+    let payload = SystemStatusQuery {
+        backend: SystemBackend::Niri,
+    };
+    let request: SystemRequest = payload.into();
+    assert_eq!(request, SystemRequest::SystemStatusQuery(payload));
 }
 
 #[test]
@@ -182,6 +312,17 @@ fn from_impl_lifts_focus_observation_into_event() {
     };
     let event: SystemEvent = payload.into();
     assert_eq!(event, SystemEvent::FocusObservation(payload));
+}
+
+#[test]
+fn from_impl_lifts_system_status_into_event() {
+    let payload = SystemStatus {
+        backend: SystemBackend::Niri,
+        health: SystemHealth::Running,
+        readiness: SystemReadiness::Ready,
+    };
+    let event: SystemEvent = payload.into();
+    assert_eq!(event, SystemEvent::SystemStatus(payload));
 }
 
 #[test]

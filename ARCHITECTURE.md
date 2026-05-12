@@ -42,8 +42,10 @@ crate is the top-level engine-manager contract.
 SystemRequest                    SystemEvent
 ├─ FocusSubscription             ├─ FocusObservation
 ├─ FocusUnsubscription           ├─ WindowClosed
-└─ FocusSnapshot                 ├─ SubscriptionAccepted
-                                 └─ ObservationTargetMissing
+├─ FocusSnapshot                 ├─ SubscriptionAccepted
+└─ SystemStatusQuery             ├─ ObservationTargetMissing
+                                 ├─ SystemStatus
+                                 └─ SystemRequestUnimplemented
 ```
 
 Closed enums; no `Unknown` variant on the wire (the
@@ -54,6 +56,12 @@ Prompt cleanliness, typed write leases, and programmatic write-injection
 acknowledgements are terminal transport records. They live in
 `signal-persona-terminal` and are enforced by `persona-terminal` /
 `terminal-cell`, not by this system observation contract.
+
+`SystemStatusQuery` and `SystemStatus` are the daemon-skeleton
+readiness surface for the component itself. A valid request whose
+runtime behavior is not built yet returns
+`SystemRequestUnimplemented`; it is a typed event, not a text error
+or a hang.
 
 ## Versioning
 
@@ -89,9 +97,9 @@ SystemEvent::FocusObservation(FocusObservation {
 
 Round-trip tests in `tests/round_trip.rs` cover all request variants, all
 event variants, `SubscriptionKind`, and representative `From` impl witnesses.
-Representative NOTA text witnesses cover `FocusSubscription` and
-`SubscriptionAccepted`. `SystemTarget` has a manual NOTA codec so the text form
-preserves the target head, for example `(NiriWindow 223)`.
+NOTA text witnesses cover every request and event variant. `SystemTarget` has a
+manual NOTA codec so the text form preserves the target head, for example
+`(NiriWindow 223)`.
 
 The `ObservationGeneration` field on focus observations is the monotonic
 counter the system mints; the router uses
@@ -111,6 +119,8 @@ Architectural-truth tests fire when:
 - No transport (UDS path, reconnect, timeouts).
 - No subscription accounting — that's `persona-system`'s
   actor.
+- No runtime implementation of status handling — the contract owns
+  only the typed records.
 
 ## Code map
 

@@ -65,6 +65,12 @@ impl SystemTarget {
     pub const fn niri_window(window_id: u64) -> Self {
         Self::NiriWindow(NiriWindowId::new(window_id))
     }
+
+    pub const fn niri_window_id(self) -> Option<NiriWindowId> {
+        match self {
+            Self::NiriWindow(window_id) => Some(window_id),
+        }
+    }
 }
 
 impl NotaEncode for SystemTarget {
@@ -137,6 +143,22 @@ pub struct FocusSnapshot {
     pub target: SystemTarget,
 }
 
+/// Component-level health/readiness request for the system
+/// boundary. The backend is named so a future multi-backend
+/// system daemon can answer one backend without implying every
+/// backend is healthy.
+#[derive(
+    Archive, RkyvSerialize, RkyvDeserialize, NotaRecord, Debug, Clone, Copy, PartialEq, Eq,
+)]
+pub struct SystemStatusQuery {
+    pub backend: SystemBackend,
+}
+
+#[derive(Archive, RkyvSerialize, RkyvDeserialize, NotaEnum, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SystemBackend {
+    Niri,
+}
+
 #[derive(
     Archive, RkyvSerialize, RkyvDeserialize, NotaEnum, Debug, Clone, Copy, PartialEq, Eq, Hash,
 )]
@@ -144,6 +166,7 @@ pub enum SystemOperationKind {
     FocusSubscription,
     FocusUnsubscription,
     FocusSnapshot,
+    SystemStatusQuery,
 }
 
 // ─── Observation events (system → router) ─────────────────
@@ -159,6 +182,16 @@ pub struct FocusObservation {
     pub target: SystemTarget,
     pub focused: bool,
     pub generation: ObservationGeneration,
+}
+
+impl FocusObservation {
+    pub const fn new(target: SystemTarget, focused: bool, generation: u64) -> Self {
+        Self {
+            target,
+            focused,
+            generation: ObservationGeneration::new(generation),
+        }
+    }
 }
 
 /// The target window has gone away (closed by user, killed,
@@ -196,6 +229,47 @@ pub struct ObservationTargetMissing {
     pub target: SystemTarget,
 }
 
+/// The system daemon's current health and readiness for one
+/// backend.
+#[derive(
+    Archive, RkyvSerialize, RkyvDeserialize, NotaRecord, Debug, Clone, Copy, PartialEq, Eq,
+)]
+pub struct SystemStatus {
+    pub backend: SystemBackend,
+    pub health: SystemHealth,
+    pub readiness: SystemReadiness,
+}
+
+#[derive(Archive, RkyvSerialize, RkyvDeserialize, NotaEnum, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SystemHealth {
+    Running,
+    Degraded,
+    Stopped,
+}
+
+#[derive(Archive, RkyvSerialize, RkyvDeserialize, NotaEnum, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SystemReadiness {
+    Ready,
+    Starting,
+    Unavailable,
+}
+
+/// A recognized request reached the system daemon, but that
+/// operation is not implemented by this daemon skeleton yet.
+#[derive(
+    Archive, RkyvSerialize, RkyvDeserialize, NotaRecord, Debug, Clone, Copy, PartialEq, Eq,
+)]
+pub struct SystemRequestUnimplemented {
+    pub operation: SystemOperationKind,
+    pub reason: SystemUnimplementedReason,
+}
+
+#[derive(Archive, RkyvSerialize, RkyvDeserialize, NotaEnum, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SystemUnimplementedReason {
+    NotBuiltYet,
+    BackendUnavailable,
+}
+
 // ─── Channel declaration ───────────────────────────────────
 
 signal_channel! {
@@ -203,12 +277,15 @@ signal_channel! {
         FocusSubscription(FocusSubscription),
         FocusUnsubscription(FocusUnsubscription),
         FocusSnapshot(FocusSnapshot),
+        SystemStatusQuery(SystemStatusQuery),
     }
     reply SystemEvent {
         FocusObservation(FocusObservation),
         WindowClosed(WindowClosed),
         SubscriptionAccepted(SubscriptionAccepted),
         ObservationTargetMissing(ObservationTargetMissing),
+        SystemStatus(SystemStatus),
+        SystemRequestUnimplemented(SystemRequestUnimplemented),
     }
 }
 
@@ -218,6 +295,7 @@ impl SystemRequest {
             Self::FocusSubscription(_) => SystemOperationKind::FocusSubscription,
             Self::FocusUnsubscription(_) => SystemOperationKind::FocusUnsubscription,
             Self::FocusSnapshot(_) => SystemOperationKind::FocusSnapshot,
+            Self::SystemStatusQuery(_) => SystemOperationKind::SystemStatusQuery,
         }
     }
 }

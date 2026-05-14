@@ -151,14 +151,6 @@ tests/
 
 ## See also
 
-- `~/primary/reports/designer/72-harmonized-implementation-plan.md`
-  §2.1 — channel inventory
-- `~/primary/reports/designer/73-signal-derive-research.md`
-  — the `signal_channel!` macro decision
-- `~/primary/reports/operator/67-signal-actor-messaging-gap-audit.md`
-  — the safety property that drives this channel's design
-- `~/primary/reports/operator/54-niri-focus-source-vision.md`
-  — operator's earlier vision for the focus-source side
 - `signal-core/src/channel.rs` — the macro
 - `signal-persona-message/ARCHITECTURE.md` — companion
   channel that the router consumes alongside this one

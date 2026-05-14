@@ -13,16 +13,13 @@ this channel carries.
 
 ```rust
 use signal_persona_system::{FocusSubscription, Frame, SystemRequest, SystemTarget};
-use signal_core::{FrameBody, Request};
+use signal_core::FrameBody;
 
 // Router subscribes to focus events for a Niri window
 let request = SystemRequest::FocusSubscription(FocusSubscription {
     target: SystemTarget::niri_window(223),
 });
-let frame = Frame::new(FrameBody::Request(Request::operation(
-    request.signal_verb(),
-    request,
-)));
+let frame = Frame::new(FrameBody::Request(request.into_signal_request()));
 let bytes = frame.encode_length_prefixed()?;
 // send to persona-system's UDS
 ```

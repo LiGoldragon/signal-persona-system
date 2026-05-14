@@ -19,7 +19,10 @@ use signal_core::{FrameBody, Request};
 let request = SystemRequest::FocusSubscription(FocusSubscription {
     target: SystemTarget::niri_window(223),
 });
-let frame = Frame::new(FrameBody::Request(Request::assert(request)));
+let frame = Frame::new(FrameBody::Request(Request::operation(
+    request.signal_verb(),
+    request,
+)));
 let bytes = frame.encode_length_prefixed()?;
 // send to persona-system's UDS
 ```
@@ -27,6 +30,9 @@ let bytes = frame.encode_length_prefixed()?;
 The system replies with `SystemEvent::SubscriptionAccepted`
 followed by `SystemEvent::FocusObservation` events whenever
 focus changes for the subscribed target.
+
+`FocusSubscription` uses `Subscribe`; `FocusUnsubscription` uses `Retract`;
+one-shot `FocusSnapshot` and `SystemStatusQuery` requests use `Match`.
 
 Prompt cleanliness, input gates, and programmatic write safety are terminal
 transport facts. They live in `signal-persona-terminal`, not in this system

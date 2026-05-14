@@ -19,12 +19,16 @@ use signal_persona_system::{
 const TARGET: SystemTarget = SystemTarget::niri_window(223);
 
 fn round_trip_request(request: SystemRequest) -> SystemRequest {
-    let frame = Frame::new(FrameBody::Request(Request::assert(request)));
+    let expected_verb = request.signal_verb();
+    let frame = Frame::new(FrameBody::Request(Request::operation(
+        expected_verb,
+        request,
+    )));
     let bytes = frame.encode_length_prefixed().expect("encode");
     let decoded = Frame::decode_length_prefixed(&bytes).expect("decode");
     match decoded.into_body() {
         FrameBody::Request(Request::Operation { verb, payload }) => {
-            assert_eq!(verb, SemaVerb::Assert);
+            assert_eq!(verb, expected_verb);
             payload
         }
         other => panic!("expected request operation, got {other:?}"),
@@ -144,6 +148,34 @@ fn system_request_exposes_contract_owned_operation_kind() {
 
     for (request, operation) in cases {
         assert_eq!(request.operation_kind(), operation);
+    }
+}
+
+#[test]
+fn system_request_variants_declare_expected_signal_root_verbs() {
+    let cases = [
+        (
+            SystemRequest::FocusSubscription(FocusSubscription { target: TARGET }),
+            SemaVerb::Subscribe,
+        ),
+        (
+            SystemRequest::FocusUnsubscription(FocusUnsubscription { target: TARGET }),
+            SemaVerb::Retract,
+        ),
+        (
+            SystemRequest::FocusSnapshot(FocusSnapshot { target: TARGET }),
+            SemaVerb::Match,
+        ),
+        (
+            SystemRequest::SystemStatusQuery(SystemStatusQuery {
+                backend: SystemBackend::Niri,
+            }),
+            SemaVerb::Match,
+        ),
+    ];
+
+    for (request, verb) in cases {
+        assert_eq!(request.signal_verb(), verb);
     }
 }
 

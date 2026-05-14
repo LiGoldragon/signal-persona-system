@@ -52,6 +52,23 @@ Closed enums; no `Unknown` variant on the wire (the
 target-missing event is an explicit typed fact, not a wire-level
 "forward-compatible new variant").
 
+### Signal root verbs
+
+Every `SystemRequest` variant declares its root verb through
+`SystemRequest::signal_verb()`. The method currently returns
+`signal_core::SemaVerb`; this crate keeps that spelling until the
+coordinated `signal-core` `SignalVerb` rename lands.
+
+```text
+FocusSubscription   -> Subscribe
+FocusUnsubscription -> Retract
+FocusSnapshot       -> Match
+SystemStatusQuery   -> Match
+```
+
+Subscriptions establish a push stream. Unsubscriptions retract that stream.
+One-shot observations and status reads use `Match`, not `Assert`.
+
 Prompt cleanliness, typed write leases, and programmatic write-injection
 acknowledgements are terminal transport records. They live in
 `signal-persona-terminal` and are enforced by `persona-terminal` /
@@ -100,6 +117,7 @@ event variants, `SubscriptionKind`, and representative `From` impl witnesses.
 NOTA text witnesses cover every request and event variant. `SystemTarget` has a
 manual NOTA codec so the text form preserves the target head, for example
 `(NiriWindow 223)`.
+Request frame tests assert each variant's `signal_verb()` mapping.
 
 The `ObservationGeneration` field on focus observations is the monotonic
 counter the system mints; the router uses

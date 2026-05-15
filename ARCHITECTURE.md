@@ -15,8 +15,8 @@ observation generations.
 | Receiver (request side) | `persona-router` |
 
 The router initiates subscriptions via `SystemRequest`;
-`persona-system` accepts and pushes `SystemEvent` events as
-focus state changes. The channel is
+`persona-system` answers direct requests with `SystemReply` and
+pushes `SystemEvent` events as focus state changes. The channel is
 **bidirectional** but the steady-state flow is system →
 router (push events).
 
@@ -39,13 +39,16 @@ crate is the top-level engine-manager contract.
 ## Messages
 
 ```
-SystemRequest                    SystemEvent
-├─ FocusSubscription             ├─ FocusObservation
-├─ FocusUnsubscription           ├─ WindowClosed
-├─ FocusSnapshot                 ├─ SubscriptionAccepted
-└─ SystemStatusQuery             ├─ ObservationTargetMissing
-                                 ├─ SystemStatus
-                                 └─ SystemRequestUnimplemented
+SystemRequest                    SystemReply
+├─ FocusSubscription             ├─ SubscriptionAccepted
+├─ FocusUnsubscription           ├─ ObservationTargetMissing
+├─ FocusSnapshot                 ├─ SystemStatus
+└─ SystemStatusQuery             ├─ SystemRequestUnimplemented
+                                 └─ FocusSnapshotReply
+
+SystemEvent
+├─ FocusObservation
+└─ WindowClosed
 ```
 
 Closed enums; no `Unknown` variant on the wire (the
@@ -77,7 +80,7 @@ acknowledgements are terminal transport records. They live in
 `SystemStatusQuery` and `SystemStatus` are the daemon-skeleton
 readiness surface for the component itself. A valid request whose
 runtime behavior is not built yet returns
-`SystemRequestUnimplemented`; it is a typed event, not a text error
+`SystemReply::SystemRequestUnimplemented`; it is a typed reply, not a text error
 or a hang.
 
 ## Versioning

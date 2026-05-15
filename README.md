@@ -4,8 +4,8 @@ The Signal contract between **`persona-system`** (producer
 of OS facts) and **`persona-router`** (consumer of focus
 observations).
 
-Read `src/lib.rs` for the public interface — two enums
-(`SystemRequest`, `SystemEvent`) declared via the
+Read `src/lib.rs` for the public interface — three enums
+(`SystemRequest`, `SystemReply`, `SystemEvent`) declared via the
 `signal_channel!` macro. The variants ARE the messages
 this channel carries.
 

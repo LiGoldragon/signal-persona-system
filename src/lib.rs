@@ -273,19 +273,30 @@ pub enum SystemUnimplementedReason {
 // ─── Channel declaration ───────────────────────────────────
 
 signal_channel! {
-    request SystemRequest {
-        Subscribe FocusSubscription(FocusSubscription),
-        Retract FocusUnsubscription(FocusUnsubscription),
-        Match FocusSnapshot(FocusSnapshot),
-        Match SystemStatusQuery(SystemStatusQuery),
-    }
-    reply SystemEvent {
-        FocusObservation(FocusObservation),
-        WindowClosed(WindowClosed),
-        SubscriptionAccepted(SubscriptionAccepted),
-        ObservationTargetMissing(ObservationTargetMissing),
-        SystemStatus(SystemStatus),
-        SystemRequestUnimplemented(SystemRequestUnimplemented),
+    channel System {
+        request SystemRequest {
+            Subscribe FocusSubscription(FocusSubscription) opens FocusEventStream,
+            Retract FocusUnsubscription(FocusUnsubscription),
+            Match FocusSnapshot(FocusSnapshot),
+            Match SystemStatusQuery(SystemStatusQuery),
+        }
+        reply SystemReply {
+            SubscriptionAccepted(SubscriptionAccepted),
+            ObservationTargetMissing(ObservationTargetMissing),
+            SystemStatus(SystemStatus),
+            SystemRequestUnimplemented(SystemRequestUnimplemented),
+            FocusSnapshotReply(FocusObservation),
+        }
+        event SystemEvent {
+            FocusObservation(FocusObservation) belongs FocusEventStream,
+            WindowClosed(WindowClosed) belongs FocusEventStream,
+        }
+        stream FocusEventStream {
+            token FocusUnsubscription;
+            opened SubscriptionAccepted;
+            event FocusObservation;
+            close FocusUnsubscription;
+        }
     }
 }
 

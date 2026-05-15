@@ -56,7 +56,7 @@ target-missing event is an explicit typed fact, not a wire-level
 
 Every `SystemRequest` variant declares its root verb in the
 `signal_channel!` declaration. `signal-core` generates
-`SystemRequest::signal_verb()` and `SystemRequest::into_signal_request()`
+`SystemRequest::signal_verb()` and `SystemRequest::into_request()`
 from that declaration.
 
 ```text
@@ -96,7 +96,7 @@ SystemRequest::FocusSubscription(FocusSubscription {
 })
 
 ;; system → router: subscription accepted
-SystemEvent::SubscriptionAccepted(SubscriptionAccepted {
+SystemReply::SubscriptionAccepted(SubscriptionAccepted {
     target: SystemTarget::niri_window(223),
     kind: SubscriptionKind::Focus,
 })

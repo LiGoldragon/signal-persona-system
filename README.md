@@ -12,19 +12,31 @@ this channel carries.
 ## Quick reference
 
 ```rust
-use signal_persona_system::{FocusSubscription, Frame, SystemRequest, SystemTarget};
-use signal_core::FrameBody;
+use signal_core::{
+    ExchangeIdentifier, ExchangeLane, LaneSequence, RequestPayload, SessionEpoch,
+};
+use signal_persona_system::{
+    FocusSubscription, SystemFrame, SystemFrameBody, SystemRequest, SystemTarget,
+};
 
 // Router subscribes to focus events for a Niri window
+let exchange = ExchangeIdentifier::new(
+    SessionEpoch::new(1),
+    ExchangeLane::Connector,
+    LaneSequence::first(),
+);
 let request = SystemRequest::FocusSubscription(FocusSubscription {
     target: SystemTarget::niri_window(223),
 });
-let frame = Frame::new(FrameBody::Request(request.into_signal_request()));
+let frame = SystemFrame::new(SystemFrameBody::Request {
+    exchange,
+    request: request.into_request(),
+});
 let bytes = frame.encode_length_prefixed()?;
 // send to persona-system's UDS
 ```
 
-The system replies with `SystemEvent::SubscriptionAccepted`
+The system replies with `SystemReply::SubscriptionAccepted`
 followed by `SystemEvent::FocusObservation` events whenever
 focus changes for the subscribed target.
 

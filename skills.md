@@ -1,6 +1,9 @@
 # skills — signal-persona-system
 
-*Per-repo agent guide.*
+*Per-repo agent guide for the OS-facts subscription contract between
+`persona-system` and `persona-router`.*
+
+---
 
 ## Checkpoint — read before editing
 
@@ -9,28 +12,50 @@ Before changing code in this repo, read:
 - `~/primary/skills/contract-repo.md`
 - `~/primary/skills/architecture-editor.md`
 - `~/primary/skills/architectural-truth-tests.md`
-- `~/primary/skills/push-not-pull.md` (this channel IS
-  the push-fed substrate the router subscribes to)
+- `~/primary/skills/push-not-pull.md` (this channel IS the
+  push-fed substrate the router subscribes to)
+- `~/primary/skills/subscription-lifecycle.md` (the canonical
+  subscription FSM)
 - `~/primary/skills/nix-discipline.md`
 - this repo's `ARCHITECTURE.md`
 - the consumers' `ARCHITECTURE.md` files
-  (`persona-system/`, `persona-router/`)
+  (`persona-system/`, `persona-router/`).
 
-If your change adds a new subscription kind or observation
-event, edit `src/lib.rs` first, then push, then update the
-consumers.
+If your change adds a new subscription kind or observation event,
+edit `src/lib.rs` first, then push, then update the consumers.
+
+---
+
+## What this repo is for
+
+`signal-persona-system` is the typed contract between the router
+(request side, opens focus subscriptions) and `persona-system`
+(reply / event side, emits focus observations on a push stream).
+
+Subscriptions follow the canonical lifecycle named in
+`~/primary/skills/subscription-lifecycle.md`: open with a typed
+`Subscribe`, push typed events, close with a typed request-side
+`Retract` carrying the per-stream token, end with a typed reply-side
+`SubscriptionRetracted` ack echoing the token.
+
+---
 
 ## What this repo owns
 
-- `SystemTarget` (typed enum over backend windows;
-  currently NiriWindow only).
-- The closed `SystemRequest` enum (subscription +
-  observation requests from the router).
-- The closed `SystemEvent` enum (focus, window-lifecycle,
-  and subscription events from the system).
-- `SubscriptionKind`.
-- The `Frame` type alias = `signal_core::Frame<SystemRequest, SystemEvent>`.
-- The wire-form round-trip tests in `tests/round_trip.rs`.
+- `SystemTarget` (typed enum over backend windows; currently
+  `NiriWindow` only).
+- The closed `SystemRequest` enum (subscription, retraction,
+  snapshot, status).
+- The closed `SystemReply` enum, including the reply-side
+  `SubscriptionRetracted` ack.
+- The closed `SystemEvent` enum (focus and window-lifecycle events
+  on the `FocusEventStream`).
+- `FocusSubscriptionToken` (per-stream identity).
+- `SubscriptionKind`, `SystemBackend`, `SystemHealth`,
+  `SystemReadiness`, `SystemUnimplementedReason`,
+  `SystemOperationKind`.
+- The `Frame` type alias = `signal_core::Frame<SystemRequest, SystemReply>`.
+- Wire-form round-trip tests in `tests/round_trip.rs`.
 
 ## What this repo does not own
 
@@ -38,5 +63,87 @@ consumers.
 - Terminal prompt cleanliness, input gates, and write-injection
   safety (live in `signal-persona-terminal` and `persona-terminal`).
 - Transport (UDS path, reconnect, timeouts) — per consumer.
-- Subscription lifetime / accounting — that's
-  `persona-system`'s actor.
+- Subscription lifetime / accounting — that's `persona-system`'s
+  actor.
+
+---
+
+## Load-bearing invariants
+
+- **Subscription close uses both sides.** The kernel grammar at
+  `signal-core/macros/src/validate.rs:303–331` requires the
+  `stream` block to name a request-side `Retract` variant; the
+  reply-side `SubscriptionRetracted` ack is the final event
+  consumers bind to. Both are present in `src/lib.rs`. Do not
+  remove either.
+- **Wire enums are closed.** No `Unknown` variant. Target absence
+  is named positively (`ObservationTargetMissing`). Future backends
+  add `SystemTarget` and `SystemBackend` variants through
+  coordinated schema bumps.
+- **Every request variant declares a Signal root verb.** The
+  `signal_channel!` declaration is the source of truth; the macro
+  generates `SystemRequest::signal_verb()` and round-trip tests
+  assert every variant.
+- **No runtime code.** No Kameo, Tokio, socket, redb, or daemon
+  glue in this crate.
+- **Round trips cover every variant.** rkyv length-prefixed frame
+  round trips in `tests/round_trip.rs`; canonical NOTA examples in
+  `examples/canonical.nota` with a parser test.
+- **`SystemTarget` has a hand-written NOTA codec.** The text head
+  IS the typed payload (`NiriWindow 223`), not a wrapper. When
+  adding a backend, add the head-dispatch arm in
+  `NotaDecode for SystemTarget` and the matching encode arm.
+- **Pin upstream contracts via a named API reference.** Cargo deps
+  declare `git = "..."` with a named branch/bookmark, never raw
+  `rev = "..."`.
+
+---
+
+## Editing patterns
+
+### Adding a new backend (e.g. Hyprland)
+
+1. Add the variant to `SystemTarget` and `SystemBackend`.
+2. Extend the `SystemTarget` NOTA codec with the new head.
+3. Add round-trip witnesses for the new target through both rkyv
+   and NOTA.
+4. Bump `signal-core` consumers; this is a coordinated schema
+   change.
+
+### Adding a new subscription kind
+
+1. Read `~/primary/skills/subscription-lifecycle.md` end-to-end.
+2. Add the typed subscribe payload, token, snapshot, and event
+   records in `src/lib.rs`.
+3. Add the new `stream` block in `signal_channel!`, with the
+   subscribe request, the request-side retract variant, the
+   reply-side ack, and the typed event variant. The kernel grammar
+   enforces the close-is-Retract shape.
+4. Witness the full subscribe → event → retract → ack → end
+   lifecycle.
+
+---
+
+## NOTA codec quirk
+
+The `signal_channel!` macro emits a request variant's NOTA head as
+the **payload's record head**, not the Rust variant name. For
+example, `SystemRequest::FocusSubscriptionRetraction(FocusSubscriptionToken { .. })`
+encodes as `(FocusSubscriptionToken (NiriWindow 223))`, not
+`(FocusSubscriptionRetraction ...)`. Canonical examples and
+round-trip tests use the payload heads. `SystemTarget` is the
+exception with a hand-written codec; see "Load-bearing invariants"
+above.
+
+---
+
+## See also
+
+- this workspace's `skills/contract-repo.md`.
+- this workspace's `skills/subscription-lifecycle.md`.
+- this workspace's `skills/push-not-pull.md`.
+- this workspace's `skills/architectural-truth-tests.md`.
+- `signal-persona-harness`'s `skills.md`,
+  `signal-persona-terminal`'s `skills.md`, and `signal-criome`'s
+  `skills.md` — sibling contracts using the same Path A subscription
+  discipline.
